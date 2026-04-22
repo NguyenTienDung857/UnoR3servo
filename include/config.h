@@ -86,7 +86,8 @@
 // ---------------------------------------------------------------------
 #define SERIAL_BAUD 9600      // Tốc độ baud cổng COM
 #define SERIAL_BUFFER_SIZE 16 // Kích thước buffer chuỗi nhận
-#define SERIAL_TIMEOUT_MS 50  // Chờ tối đa 50ms sau byte cuối -> coi là hết lệnh
+#define SERIAL_TIMEOUT_MS 100 // Chờ tối đa 100ms sau chữ số cuối -> coi là hết lệnh (fallback)
+#define SERIAL_DEBUG_ENABLE 1 // 1 = bật log debug Serial, 0 = tắt log
 
 // ---------------------------------------------------------------------
 // TỐC ĐỘ BUS I2C CHO OLED SH1106
@@ -183,6 +184,95 @@ char displayP3[3] = {0}; // Phần 3 (đã loại số 0 đầu)
  * ===================================================================== */
 
 // =====================================================================
+// HÀM: logByteReceived
+// ---------------------------------------------------------------------
+// Log từng byte nhận từ cổng COM (mã HEX + ký tự hiển thị nếu có).
+// =====================================================================
+inline void logByteReceived(char c)
+{
+#if SERIAL_DEBUG_ENABLE
+  Serial.print(F("[RX-BYTE] 0x"));
+  if ((uint8_t)c < 0x10)
+  {
+    Serial.print('0');
+  }
+  Serial.print((uint8_t)c, HEX);
+  Serial.print(F(" char='"));
+  if (c >= 32 && c <= 126)
+  {
+    Serial.print(c);
+  }
+  else
+  {
+    Serial.print('.');
+  }
+  Serial.println(F("'"));
+#else
+  (void)c;
+#endif
+}
+
+// =====================================================================
+// HÀM: logCommandFrame
+// ---------------------------------------------------------------------
+// Log chuỗi lệnh hoàn chỉnh trước khi đưa vào xử lý.
+// source: mô tả nguồn tách gói (delimiter hoặc timeout).
+// =====================================================================
+inline void logCommandFrame(const char *cmd, uint8_t len, const __FlashStringHelper *source)
+{
+#if SERIAL_DEBUG_ENABLE
+  Serial.print(F("[RX-CMD] source="));
+  Serial.print(source);
+  Serial.print(F(", len="));
+  Serial.print(len);
+  Serial.print(F(", data=\""));
+  Serial.print(cmd);
+  Serial.println(F("\""));
+#else
+  (void)cmd;
+  (void)len;
+  (void)source;
+#endif
+}
+
+// =====================================================================
+// HÀM: logAction
+// ---------------------------------------------------------------------
+// Log các hành động đã thực thi (relay/servo/oled/process).
+// =====================================================================
+inline void logAction(const __FlashStringHelper *msg)
+{
+#if SERIAL_DEBUG_ENABLE
+  Serial.println(msg);
+#else
+  (void)msg;
+#endif
+}
+
+// =====================================================================
+// HÀM: logOledCommand
+// ---------------------------------------------------------------------
+// Log chuyên biệt cho lệnh liên quan OLED nhận từ cổng COM.
+// stage: giai đoạn xử lý (RECEIVED/ACCEPT/REJECT/RENDER...)
+// =====================================================================
+inline void logOledCommand(const __FlashStringHelper *stage, const char *cmd, uint8_t len)
+{
+#if SERIAL_DEBUG_ENABLE
+  Serial.print(F("[OLED-COM] "));
+  Serial.print(stage);
+  Serial.print(F(", len="));
+  Serial.print(len);
+  Serial.print(F(", data=\""));
+  Serial.print(cmd);
+  Serial.println(F("\""));
+#else
+  (void)stage;
+  (void)cmd;
+  (void)len;
+#endif
+}
+
+// =====================================================================
 // HÀM: renderOled
 // ---------------------------------------------------------------------
 // Vẽ nội dung lên OLED theo trạng thái displayMode hiện tại.
@@ -195,10 +285,19 @@ char displayP3[3] = {0}; // Phần 3 (đã loại số 0 đầu)
 // =====================================================================
 inline void renderOled()
 {
+#if SERIAL_DEBUG_ENABLE
+  Serial.print(F("[OLED-RENDER] mode="));
+  Serial.println(displayMode);
+#endif
+
   u8g2.clearBuffer(); // Xóa frame buffer trong RAM trước khi vẽ
 
   if (displayMode == 1)
   {
+#if SERIAL_DEBUG_ENABLE
+    Serial.println(F("[OLED-RENDER] draw boot text: YURA"));
+#endif
+
     // Hiển thị chữ "YURA" to ở giữa màn hình
     u8g2.setFont(u8g2_font_logisoso28_tr); // Font cao 28px (có chữ cái)
     const char *msg = "YURA";
@@ -209,6 +308,16 @@ inline void renderOled()
   }
   else if (displayMode == 2)
   {
+#if SERIAL_DEBUG_ENABLE
+    Serial.print(F("[OLED-RENDER] line1-left='"));
+    Serial.print(displayP1);
+    Serial.print(F("', line1-right='"));
+    Serial.print(displayP2);
+    Serial.print(F("', line2-center='"));
+    Serial.print(displayP3);
+    Serial.println(F("'"));
+#endif
+
     // Hiển thị 5 chữ số: P1 trái, P2 phải (dòng 1), P3 giữa (dòng 2)
     u8g2.setFont(u8g2_font_logisoso28_tn); // Font số cao 28px
 
@@ -237,6 +346,7 @@ inline void renderOled()
 inline void displayBootMessage()
 {
   displayMode = 1;
+  logAction(F("[OLED] Show boot message: YURA"));
   renderOled();
 }
 
@@ -246,6 +356,8 @@ inline void displayBootMessage()
 inline void displayClearScreen()
 {
   displayMode = 0;
+  logAction(F("[OLED] Clear screen (command 44)"));
+  logOledCommand(F("ACTION_CLEAR"), "44", 2);
   renderOled();
 }
 
@@ -291,6 +403,15 @@ inline void handleFiveDigitDisplay(const char *digits)
   }
 
   displayMode = 2;
+#if SERIAL_DEBUG_ENABLE
+  Serial.print(F("[OLED] 5-digit parsed -> P1='"));
+  Serial.print(displayP1);
+  Serial.print(F("', P2='"));
+  Serial.print(displayP2);
+  Serial.print(F("', P3='"));
+  Serial.print(displayP3);
+  Serial.println(F("'"));
+#endif
   renderOled();
 }
 
@@ -299,20 +420,30 @@ inline void handleFiveDigitDisplay(const char *digits)
 // =====================================================================
 inline void handleOneCharCommand(char c)
 {
+#if SERIAL_DEBUG_ENABLE
+  Serial.print(F("[PROCESS] One-char command='"));
+  Serial.print(c);
+  Serial.println(F("'"));
+#endif
+
   switch (c)
   {
   case '1': // Bật RelayBplus (D7)
     digitalWrite(PIN_RELAY_BPLUS, RELAY_ON);
+    logAction(F("[ACT] RelayBplus -> ON (D7)"));
     break;
   case '2': // Tắt RelayBplus (D7)
     digitalWrite(PIN_RELAY_BPLUS, RELAY_OFF);
+    logAction(F("[ACT] RelayBplus -> OFF (D7)"));
     break;
 
   case '3': // ServoFontCam quay về HOME (0 độ)
     servoFontCam.write(SERVO_FONTCAM_HOME);
+    logAction(F("[ACT] ServoFontCam -> HOME 0 deg (D2)"));
     break;
   case '4': // ServoFontCam quay tới 45 độ
     servoFontCam.write(SERVO_FONTCAM_MAX);
+    logAction(F("[ACT] ServoFontCam -> 45 deg (D2)"));
     break;
 
   case '7': // Khởi động chu kỳ ServoSDcard
@@ -321,20 +452,38 @@ inline void handleOneCharCommand(char c)
     {
       sdcState = SDC_MOVING_TO_93;
       lastServoMoveTime = millis();
+      logAction(F("[ACT] ServoSDcard cycle START -> moving to 93 deg"));
+    }
+    else
+    {
+#if SERIAL_DEBUG_ENABLE
+      Serial.print(F("[WARN] Command '7' ignored, ServoSDcard busy, state="));
+      Serial.println((int)sdcState);
+#endif
     }
     break;
 
   case '8': // Khởi động chu kỳ ServoOled
+#if SERIAL_DEBUG_ENABLE
+    Serial.print(F("[ACT] Command '8' received, oledSvState="));
+    Serial.println((int)oledSvState);
+#endif
     if (oledSvState == OLED_SV_IDLE)
     {
       servoOled.write(SERVO_OLED_MAX); // Quay nhanh tới 90 độ
       oledSvWaitStart = millis();
       oledSvState = OLED_SV_AT_90;
+      logAction(F("[ACT] ServoOled -> 90 deg (D3), wait 500ms"));
+    }
+    else
+    {
+      logAction(F("[WARN] Command '8' ignored, ServoOled still busy"));
     }
     break;
 
   default:
     // Ký tự lạ -> bỏ qua
+    logAction(F("[WARN] Unknown one-char command, ignored"));
     break;
   }
 }
@@ -349,20 +498,35 @@ inline void handleOneCharCommand(char c)
 // =====================================================================
 inline void processSerialCommand(const char *cmd, uint8_t len)
 {
+#if SERIAL_DEBUG_ENABLE
+  Serial.print(F("[PROCESS] Dispatch command len="));
+  Serial.println(len);
+#endif
+
   if (len == 1)
   {
     handleOneCharCommand(cmd[0]);
   }
   else if (len == 2)
   {
+    logOledCommand(F("RECEIVED_LEN2"), cmd, len);
+
     // Chỉ chấp nhận đúng "44"
     if (cmd[0] == '4' && cmd[1] == '4')
     {
+      logOledCommand(F("ACCEPT_CLEAR_44"), cmd, len);
       displayClearScreen();
+    }
+    else
+    {
+      logOledCommand(F("REJECT_LEN2_NOT_44"), cmd, len);
+      logAction(F("[WARN] 2-char command is not '44', ignored"));
     }
   }
   else if (len == 5)
   {
+    logOledCommand(F("RECEIVED_LEN5"), cmd, len);
+
     // Kiểm tra tất cả ký tự đều là chữ số
     bool allDigits = true;
     for (uint8_t i = 0; i < 5; i++)
@@ -375,8 +539,18 @@ inline void processSerialCommand(const char *cmd, uint8_t len)
     }
     if (allDigits)
     {
+      logOledCommand(F("ACCEPT_LEN5_DIGITS"), cmd, len);
       handleFiveDigitDisplay(cmd);
     }
+    else
+    {
+      logOledCommand(F("REJECT_LEN5_NON_DIGIT"), cmd, len);
+      logAction(F("[WARN] 5-char command has non-digit, ignored"));
+    }
+  }
+  else
+  {
+    logAction(F("[WARN] Unsupported command length, ignored"));
   }
   // Các độ dài khác bỏ qua
 }
@@ -385,34 +559,59 @@ inline void processSerialCommand(const char *cmd, uint8_t len)
 // HÀM: readSerialNonBlocking
 // ---------------------------------------------------------------------
 // Đọc Serial từng ký tự một (không chặn luồng).
-// Không dùng '\n' làm ký tự kết thúc (để tương thích với CAPL/CANoe).
-// Thay vào đó dùng timeout: nếu sau SERIAL_TIMEOUT_MS (50ms) không có
-// byte mới mà buffer đang có dữ liệu -> coi là hết lệnh và xử lý.
+// Logic tách ký tự theo kiểu reference code đã chạy thực tế:
+//   - Ký tự là chữ số ('0'..'9') -> tích lũy vào buffer
+//   - Ký tự KHÔNG phải số (\n, \r, space, ...) -> kích hoạt xử lý NGAY
+//     mà KHÔNG thêm ký tự đó vào buffer (tránh lỗi len sai)
+// Bug cũ: mọi ký tự đều nhét vào buffer nên "44\n" cho len=3 thay vì 2,
+// "10203\n" cho len=6 thay vì 5 -> không khớp case nào -> bị bỏ qua.
+// Timeout 100ms vẫn giữ làm fallback cho tool gửi không có ký tự kết thúc.
 // =====================================================================
 inline void readSerialNonBlocking()
 {
-  // --- Tích lũy bytes vào buffer ---
   while (Serial.available() > 0)
   {
     char c = (char)Serial.read();
-    lastByteTime = millis(); // Cập nhật mốc nhận byte cuối
+    logByteReceived(c);
 
-    if (serialIndex < SERIAL_BUFFER_SIZE - 1)
+    if (c >= '0' && c <= '9')
     {
-      serialBuffer[serialIndex++] = c;
+      // Chữ số -> tích lũy vào buffer, cập nhật mốc thời gian
+      lastByteTime = millis();
+      if (serialIndex < SERIAL_BUFFER_SIZE - 1)
+      {
+        serialBuffer[serialIndex++] = c;
+      }
+      else
+      {
+        logAction(F("[WARN] Serial buffer overflow -> reset buffer"));
+        serialIndex = 0; // Buffer tràn -> reset, bỏ chuỗi lỗi
+      }
     }
     else
     {
-      serialIndex = 0; // Buffer tràn -> reset, bỏ chuỗi lỗi
+      // Không phải số (\n, \r, space...) -> kích hoạt xử lý ngay nếu có dữ liệu
+      if (serialIndex > 0)
+      {
+        serialBuffer[serialIndex] = '\0';
+        logCommandFrame(serialBuffer, serialIndex, F("delimiter"));
+        processSerialCommand(serialBuffer, serialIndex);
+        serialIndex = 0;
+      }
+      else
+      {
+        logAction(F("[RX] Delimiter received while buffer empty, ignored"));
+      }
     }
   }
 
-  // --- Kiểm tra timeout: đã có dữ liệu và không có byte mới trong 50ms ---
+  // --- Timeout fallback 100ms: tool gửi không kèm ký tự kết thúc ---
   if (serialIndex > 0 && (millis() - lastByteTime >= SERIAL_TIMEOUT_MS))
   {
     serialBuffer[serialIndex] = '\0';
+    logCommandFrame(serialBuffer, serialIndex, F("timeout"));
     processSerialCommand(serialBuffer, serialIndex);
-    serialIndex = 0; // Reset buffer cho lệnh tiếp theo
+    serialIndex = 0;
   }
 }
 
@@ -455,6 +654,7 @@ inline void updateServoSDcard()
         // Đã tới 93 độ -> chờ 1 giây
         sdcWaitStartTime = now;
         sdcState = SDC_WAITING_1S;
+        logAction(F("[ACT] ServoSDcard reached 93 deg -> waiting 1s"));
       }
     }
     break;
@@ -465,6 +665,7 @@ inline void updateServoSDcard()
     {
       lastServoMoveTime = now;
       sdcState = SDC_MOVING_TO_HOME;
+      logAction(F("[ACT] ServoSDcard wait done -> moving to HOME"));
     }
     break;
 
@@ -482,6 +683,7 @@ inline void updateServoSDcard()
       {
         // Đã về tới 0 độ -> hoàn tất chu kỳ
         sdcState = SDC_IDLE;
+        logAction(F("[ACT] ServoSDcard cycle DONE at HOME"));
       }
     }
     break;
@@ -511,6 +713,7 @@ inline void updateServoOled()
     {
       servoOled.write(SERVO_OLED_HOME); // Quay nhanh về 0 độ
       oledSvState = OLED_SV_IDLE;
+      logAction(F("[ACT] ServoOled returned to HOME 0 deg"));
     }
     break;
   }

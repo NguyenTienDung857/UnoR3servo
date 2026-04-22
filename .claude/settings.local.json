@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(pio run *)",
-      "Bash(/c/Users/tiend/.platformio/penv/Scripts/pio.exe run *)"
+      "Bash(/c/Users/tiend/.platformio/penv/Scripts/pio.exe run *)",
+      "Bash(~/.platformio/penv/bin/pio run *)",
+      "PowerShell(cd D:\\\\project\\\\UnoR3servo; & \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run 2>&1 | Select-Object -Last 30)",
+      "Bash(git checkout *)",
+      "PowerShell(cd D:\\\\project\\\\UnoR3servo; & \"$env:USERPROFILE\\\\.platformio\\\\penv\\\\Scripts\\\\pio.exe\" run 2>&1 | Select-Object -Last 10)"
     ]
   }
 }
