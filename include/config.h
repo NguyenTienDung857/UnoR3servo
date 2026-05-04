@@ -8,6 +8,8 @@
  *    '2' -> Tắt RelayBplus              (D7 = LOW)
  *    '3' -> ServoFontCam về HOME (0°)   (D2)
  *    '4' -> ServoFontCam tới 45°        (D2)
+ *    '5' -> ServoRearCam về HOME (0°)   (D8)
+ *    '6' -> ServoRearCam tới 45°        (D8)
  *    '7' -> Chạy 1 chu kỳ ServoSDcard (D5):
  *           HOME(0) -> 93 (rất chậm ~3s) -> chờ 1s -> HOME(0) (rất chậm ~3s)
  *    '8' -> Chạy 1 chu kỳ ServoOled  (D3):
@@ -62,6 +64,7 @@
 // ---------------------------------------------------------------------
 #define PIN_RELAY_BPLUS 7   // D7  -> RelayBplus
 #define PIN_SERVO_FONTCAM 2 // D2  -> ServoFontCam
+#define PIN_SERVO_REARCAM 8 // D8  -> ServoRearCam
 #define PIN_SERVO_SDCARD 5  // D5  -> ServoSDcard
 #define PIN_SERVO_OLED 3    // D3  -> ServoOled
 
@@ -81,6 +84,9 @@
 #define SERVO_FONTCAM_HOME 0 // Vị trí gốc HOME của ServoFontCam
 #define SERVO_FONTCAM_MAX 45 // Góc đích của ServoFontCam khi nhận lệnh '4'
 
+#define SERVO_REARCAM_HOME 0 // Vị trí gốc HOME của ServoRearCam
+#define SERVO_REARCAM_MAX 45 // Góc đích của ServoRearCam khi nhận lệnh '6'
+
 // ---------------------------------------------------------------------
 // THÔNG SỐ GIAO TIẾP SERIAL
 // ---------------------------------------------------------------------
@@ -95,6 +101,11 @@
 // Nếu OLED hoặc dây tín hiệu không ổn định, giảm lại 400000UL.
 // ---------------------------------------------------------------------
 #define OLED_I2C_CLOCK_HZ 800000UL
+
+// SH1106 command 0xD5: Display Clock Divide Ratio / Oscillator Frequency.
+// 0xF0 = oscillator frequency max (0xF) + divide ratio 1 (0x0).
+// This is the camera-friendly max refresh setting to reduce black rolling bars.
+#define OLED_DISPLAY_CLOCK_DIV_OSC 0xF0
 
 /* =====================================================================
  * PHẦN 2: ENUM TRẠNG THÁI STATE MACHINE
@@ -143,6 +154,7 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R2, /* reset=*/U8X8_PIN_NONE);
 Servo servoSDcard;  // Servo D5 - quay chậm, max 93 độ
 Servo servoOled;    // Servo D3 - quay nhanh, max 90 độ
 Servo servoFontCam; // Servo D2 - 2 vị trí: 0 độ (HOME) hoặc 45 độ
+Servo servoRearCam; // Servo D8 - 2 vị trí: 0 độ (HOME) hoặc 45 độ
 
 /* =====================================================================
  * PHẦN 4: BIẾN TOÀN CỤC
@@ -319,10 +331,10 @@ inline void renderOled()
 #endif
 
     // Hiển thị 5 chữ số: P1 trái, P2 phải (dòng 1), P3 giữa (dòng 2)
-    u8g2.setFont(u8g2_font_logisoso28_tn); // Font số cao 28px
+    u8g2.setFont(u8g2_font_logisoso32_tn); // Font số cao 32px, lớn hơn nhưng vẫn đủ 2 dòng
 
-    // Dòng 1: baseline y = 28
-    int y1 = 28;
+    // Dòng 1: baseline y = 31
+    int y1 = 31;
     u8g2.drawStr(0, y1, displayP1); // P1 sát trái
     int wP2 = u8g2.getStrWidth(displayP2);
     u8g2.drawStr(128 - wP2, y1, displayP2); // P2 sát phải
@@ -418,6 +430,39 @@ inline void handleFiveDigitDisplay(const char *digits)
 // =====================================================================
 // HÀM: handleOneCharCommand - Xử lý lệnh 1 ký tự cho Relay và Servo.
 // =====================================================================
+inline uint8_t clampServoAngle(int angle, uint8_t maxAngle)
+{
+  if (angle < 0)
+  {
+    return 0;
+  }
+  if (angle > maxAngle)
+  {
+    return maxAngle;
+  }
+  return (uint8_t)angle;
+}
+
+inline void writeServoSDcard(int angle)
+{
+  servoSDcard.write(clampServoAngle(angle, SERVO_SDCARD_MAX));
+}
+
+inline void writeServoOled(int angle)
+{
+  servoOled.write(clampServoAngle(angle, SERVO_OLED_MAX));
+}
+
+inline void writeServoFontCam(int angle)
+{
+  servoFontCam.write(clampServoAngle(angle, SERVO_FONTCAM_MAX));
+}
+
+inline void writeServoRearCam(int angle)
+{
+  servoRearCam.write(clampServoAngle(angle, SERVO_REARCAM_MAX));
+}
+
 inline void handleOneCharCommand(char c)
 {
 #if SERIAL_DEBUG_ENABLE
@@ -438,12 +483,21 @@ inline void handleOneCharCommand(char c)
     break;
 
   case '3': // ServoFontCam quay về HOME (0 độ)
-    servoFontCam.write(SERVO_FONTCAM_HOME);
+    writeServoFontCam(SERVO_FONTCAM_HOME);
     logAction(F("[ACT] ServoFontCam -> HOME 0 deg (D2)"));
     break;
   case '4': // ServoFontCam quay tới 45 độ
-    servoFontCam.write(SERVO_FONTCAM_MAX);
+    writeServoFontCam(SERVO_FONTCAM_MAX);
     logAction(F("[ACT] ServoFontCam -> 45 deg (D2)"));
+    break;
+
+  case '5': // ServoRearCam quay về HOME (0 độ)
+    writeServoRearCam(SERVO_REARCAM_HOME);
+    logAction(F("[ACT] ServoRearCam -> HOME 0 deg (D8)"));
+    break;
+  case '6': // ServoRearCam quay tới 45 độ
+    writeServoRearCam(SERVO_REARCAM_MAX);
+    logAction(F("[ACT] ServoRearCam -> 45 deg (D8)"));
     break;
 
   case '7': // Khởi động chu kỳ ServoSDcard
@@ -470,7 +524,7 @@ inline void handleOneCharCommand(char c)
 #endif
     if (oledSvState == OLED_SV_IDLE)
     {
-      servoOled.write(SERVO_OLED_MAX); // Quay nhanh tới 90 độ
+      writeServoOled(SERVO_OLED_MAX); // Quay nhanh tới 90 độ
       oledSvWaitStart = millis();
       oledSvState = OLED_SV_AT_90;
       logAction(F("[ACT] ServoOled -> 90 deg (D3), wait 500ms"));
@@ -647,7 +701,7 @@ inline void updateServoSDcard()
         {
           sdcCurrentAngle = SERVO_SDCARD_MAX;
         }
-        servoSDcard.write(sdcCurrentAngle);
+        writeServoSDcard(sdcCurrentAngle);
       }
       else
       {
@@ -677,7 +731,7 @@ inline void updateServoSDcard()
       if (sdcCurrentAngle > SERVO_SDCARD_HOME)
       {
         sdcCurrentAngle--;
-        servoSDcard.write(sdcCurrentAngle);
+        writeServoSDcard(sdcCurrentAngle);
       }
       else
       {
@@ -711,7 +765,7 @@ inline void updateServoOled()
     // Sau khi đến 90 độ, chờ đủ 0.5 giây rồi quay về 0 độ
     if (now - oledSvWaitStart >= SERVO_OLED_WAIT_MS)
     {
-      servoOled.write(SERVO_OLED_HOME); // Quay nhanh về 0 độ
+      writeServoOled(SERVO_OLED_HOME); // Quay nhanh về 0 độ
       oledSvState = OLED_SV_IDLE;
       logAction(F("[ACT] ServoOled returned to HOME 0 deg"));
     }

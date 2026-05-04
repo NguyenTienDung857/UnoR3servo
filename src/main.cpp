@@ -24,15 +24,19 @@ void setup()
   servoSDcard.attach(PIN_SERVO_SDCARD);
   servoOled.attach(PIN_SERVO_OLED);
   servoFontCam.attach(PIN_SERVO_FONTCAM);
+  servoRearCam.attach(PIN_SERVO_REARCAM);
 
   // ServoOled: Quay ngay về 0 độ (nhanh, an toàn)
-  servoOled.write(SERVO_OLED_HOME);
+  writeServoOled(SERVO_OLED_HOME);
 
   // ServoFontCam: Về HOME (0°) khi khởi động. Nếu đã ở 0° thì đứng yên.
-  servoFontCam.write(SERVO_FONTCAM_HOME);
+  writeServoFontCam(SERVO_FONTCAM_HOME);
+
+  // ServoRearCam: Về HOME (0°) khi khởi động. Nếu đã ở 0° thì đứng yên.
+  writeServoRearCam(SERVO_REARCAM_HOME);
 
   // ServoSDcard: Về HOME (0°) khi khởi động. Nếu đã ở 0° thì đứng yên.
-  servoSDcard.write(SERVO_SDCARD_HOME);
+  writeServoSDcard(SERVO_SDCARD_HOME);
   lastServoMoveTime = millis();
 
   // --- Khởi tạo I2C tốc độ cao cho OLED để giảm hiện tượng nháy khi quay video ---
@@ -51,7 +55,7 @@ void setup()
   //               bits[3:0] = 0x0 (divide ratio = 1, không chia tần số)
   // Giá trị 0xF0 -> SH1106 quét nội bộ nhanh nhất có thể, khó bị rolling
   // shutter camera bắt được đường ngang giữa các lần quét.
-  u8g2.sendF("ca", 0xD5, 0xF0);
+  u8g2.sendF("ca", 0xD5, OLED_DISPLAY_CLOCK_DIV_OSC);
 
   displayBootMessage();
 }
