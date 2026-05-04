@@ -8,12 +8,12 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "D:/project/UnoR3servo/include",
-                "D:/project/UnoR3servo/src",
-                "D:/project/UnoR3servo/.pio/libdeps/uno/U8g2/src",
+                "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/include",
+                "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/src",
+                "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/.pio/libdeps/uno/U8g2/src",
                 "C:/Users/tiend/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                 "C:/Users/tiend/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                "D:/project/UnoR3servo/.pio/libdeps/uno/Servo/src",
+                "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/.pio/libdeps/uno/Servo/src",
                 "C:/Users/tiend/.platformio/packages/framework-arduino-avr/cores/arduino",
                 "C:/Users/tiend/.platformio/packages/framework-arduino-avr/variants/standard",
                 "C:/Users/tiend/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
@@ -24,12 +24,12 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "D:/project/UnoR3servo/include",
-                    "D:/project/UnoR3servo/src",
-                    "D:/project/UnoR3servo/.pio/libdeps/uno/U8g2/src",
+                    "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/include",
+                    "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/src",
+                    "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/.pio/libdeps/uno/U8g2/src",
                     "C:/Users/tiend/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
                     "C:/Users/tiend/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                    "D:/project/UnoR3servo/.pio/libdeps/uno/Servo/src",
+                    "C:/Users/tiend/Documents/PlatformIO/Projects/Uno_dung/.pio/libdeps/uno/Servo/src",
                     "C:/Users/tiend/.platformio/packages/framework-arduino-avr/cores/arduino",
                     "C:/Users/tiend/.platformio/packages/framework-arduino-avr/variants/standard",
                     "C:/Users/tiend/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",

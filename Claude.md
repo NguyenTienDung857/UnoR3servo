@@ -1,6 +1,6 @@
-TÀI LIỆU CẬP NHẬT THEO FIRMWARE HIỆN TẠI (Arduino UNO R3)
+ (Arduino UNO R3)
 
-Nguồn đối chiếu: src/main.cpp và include/config.h
+
 
 1) SƠ ĐỒ CHÂN PHẦN CỨNG ĐANG DÙNG
 
@@ -12,25 +12,17 @@ Nguồn đối chiếu: src/main.cpp và include/config.h
 - D2: ServoFontCam
 	- Lệnh COM "3": quay về HOME 0 độ
 	- Lệnh COM "4": quay đến 45 độ
-	- Firmware clamp góc tối đa: 45 độ
-
-- D8: ServoRearCam
-	- Lệnh COM "5": quay về HOME 0 độ
-	- Lệnh COM "6": quay đến 45 độ
-	- Firmware clamp góc tối đa: 45 độ
 
 - D5: ServoSDcard
 	- State machine non-blocking bằng millis()
 	- Giới hạn góc tối đa 93 độ
-	- Tốc độ chậm: 32ms/1 độ
 	- Lệnh COM "7": chạy 1 chu kỳ
 
 - D3: ServoOled
 	- Lệnh COM "8": quay nhanh 90 độ, chờ 0.5s, quay về 0 độ
 
-- SDA/SCL: OLED 1.3 inch SH1106 I2C
-	- Cấu hình xoay ngược màn hình: U8G2_R2 (180 độ)
-	- Display clock SH1106: 0xD5 / 0xF0 để tăng tần số quét nội bộ, giảm sọc đen khi quay video
+- SDA/SCL: OLED 1.3 inch  I2C
+	- Cấu hình xoay ngược màn hình (180 độ)
 
 
 
@@ -41,8 +33,6 @@ Nguồn đối chiếu: src/main.cpp và include/config.h
 	- "2": RelayBplus OFF
 	- "3": ServoFontCam về 0 độ
 	- "4": ServoFontCam tới 45 độ
-	- "5": ServoRearCam về 0 độ
-	- "6": ServoRearCam tới 45 độ
 	- "7": bắt đầu chu kỳ ServoSDcard
 	- "8": bắt đầu chu kỳ ServoOled
 
@@ -60,10 +50,10 @@ Nguồn đối chiếu: src/main.cpp và include/config.h
 
 4) OLED (LUỒNG HIỂN THỊ) 1,3 inch I2C
 
-- Khởi động: hiện "YURA" to ở giữa màn hình.
+
 - Nhận "44": xóa màn hình (clear).
 - Nhận 5 chữ số hợp lệ: tách P1/P2/P3 và vẽ đúng bố cục 2 dòng.
-- Font số đang dùng: logisoso32, lớn hơn bản 28px trước đó và vẫn vừa 2 dòng OLED 128x64.
+- Font đang dùng: nhóm logisoso (ưu tiên chữ số lớn để dễ đọc).
 
 5) SERVO SDCARD (D5) 
 
@@ -91,9 +81,23 @@ Nhóm log:
 
 - Serial.begin(9600)
 - Relay D7 -> OFF
-- Attach 4 servo (D5, D3, D2, D8)
-- Đưa tất cả servo về HOME 0 độ ngay khi khởi động
-- Wire.begin + tăng I2C clock
-- SH1106 display clock -> 0xF0
-- Hiện "YURA"
+- Attach 3 servo (D5, D3, D2)
+- Đưa servo về vị trí khởi động
+- Lắng nghe cỏng COM 
 
+Servo tôi dùng là là loại  quay 180 độ, nhưng tôi giới hạn góc tối đa 93 độ để tránh va chạm cơ học với phần cứng khác 
+
+8) UPDATE 2026-05-04 - ServoRearCam and OLED
+
+- D8: ServoRearCam
+	- Boot default: HOME 0 deg.
+	- COM "5": ServoRearCam HOME 0 deg.
+	- COM "6": ServoRearCam WORK 45 deg.
+	- Firmware logs [CMD] for commands 5/6 and [ACT] for actual or skipped movement.
+
+- OLED camera tuning:
+	- Uses U8G2 full-buffer constructor to render a complete frame before sending.
+	- I2C bus clock is set to 400 kHz.
+	- SH1106 display clock command 0xD5 is set to 0xF0.
+	- Contrast is set to 255.
+	- Firmware logs [OLED-CONFIG] during setup and [OLED-RENDER] for clear/digit frames.
